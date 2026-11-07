@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ca">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Amigos Quiz — Analytics Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Icones Feather -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Barra Superior -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                    AQ
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 leading-tight">Amigos Quiz — Metrics</h1>
+                    <p class="text-xs text-slate-500">Panell de control i monitorització</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <span id="sync-status"
+                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> En directe
+                </span>
+                <span id="ultima-act" class="text-xs text-slate-400 hidden sm:inline">Actualitzat: --</span>
+                <button onclick="carregarDades()" title="Actualitzar ara"
+                    class="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition">
+                    <i data-feather="refresh-cw" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contingut Principal -->
+    <main class="max-w-7xl mx-auto px-6 py-8 flex-1 w-full space-y-8">
+
+        <!-- Targetes d'Estadístiques -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                    <i data-feather="users" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Respostes</p>
+                    <h3 id="stat-total-respostes" class="text-2xl font-bold text-slate-900">--</h3>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                <div class="p-3 bg-violet-50 text-violet-600 rounded-xl">
+                    <i data-feather="user-check" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Creadors Únics</p>
+                    <h3 id="stat-total-creadors" class="text-2xl font-bold text-slate-900">--</h3>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                <div class="p-3 bg-amber-50 text-amber-600 rounded-xl">
+                    <i data-feather="award" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Mitjana d'Encerts</p>
+                    <h3 id="stat-mitjana-aciertos" class="text-2xl font-bold text-slate-900">--</h3>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <i data-feather="trending-up" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Top Creador</p>
+                    <h3 id="stat-top-creador" class="text-base font-bold text-slate-900 truncate max-w-[140px]">--</h3>
+                </div>
+            </div>
+        </section>
+
+        <!-- Gràfics -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div
+                class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div class="mb-4">
+                    <h2 class="text-base font-bold text-slate-900">Respostes rebudes per persona</h2>
+                    <p class="text-xs text-slate-500">Quants amics han respost al quiz de cadascú</p>
+                </div>
+                <div class="relative h-64">
+                    <canvas id="chartCreadors"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div class="mb-4">
+                    <h2 class="text-base font-bold text-slate-900">Distribució d'encerts</h2>
+                    <p class="text-xs text-slate-500">Percentatge d'encerts globals</p>
+                </div>
+                <div class="relative h-64 flex items-center justify-center">
+                    <canvas id="chartNotes"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Taula d'Activitat Recent -->
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900">Últimes respostes registrades</h2>
+                    <p class="text-xs text-slate-500">Historial en viu ordenat per la data més recent</p>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-medium border-b border-slate-100">
+                        <tr>
+                            <th class="px-6 py-3">Data i Hora</th>
+                            <th class="px-6 py-3">Creador del Test</th>
+                            <th class="px-6 py-3">Amic que va respondre</th>
+                            <th class="px-6 py-3 text-center">Encerts</th>
+                        </tr>
+                    </thead>
+                    <tbody id="taula-respostes" class="divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="4" class="px-6 py-8 text-center text-slate-400">Carregant dades de Supabase...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        const SUPABASE_URL = "https://kugscimolzccvdoymknx.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_NKlEEmVxCnGs-vgc6Aeg3Q_K1gk7NNs";
+
+        // Declarem el client de Supabase una sola vegada
+        const clientSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let chartCreadorsInstance = null;
+        let chartNotesInstance = null;
+
+        async function carregarDades() {
+            try {
+                const { data, error } = await clientSupabase
+                    .from('ranking_completo')
+                    .select('*')
+                    .order('fecha_hora', { ascending: false });
+
+                if (error) throw error;
+
+                processarDades(data);
+
+                const ara = new Date();
+                document.getElementById('ultima-act').textContent =
+                    `Actualitzat: ${ara.toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+
+                const status = document.getElementById('sync-status');
+                status.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200";
+                status.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> En directe`;
+            } catch (err) {
+                console.error("Error carregant dades:", err);
+                const status = document.getElementById('sync-status');
+                status.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200";
+                status.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500"></span> Error de connexió`;
+            }
+        }
+
+        function processarDades(registres) {
+            if (!registres || registres.length === 0) return;
+
+            const totalRespostes = registres.length;
+            const creadorsUnics = [...new Set(registres.map(r => r.dueno_del_test))];
+
+            const sumaAciertos = registres.reduce((acc, r) => acc + (Number(r.aciertos) || 0), 0);
+            const mitjanaAciertos = (sumaAciertos / totalRespostes).toFixed(1);
+
+            const comptadorCreadors = {};
+            registres.forEach(r => {
+                comptadorCreadors[r.dueno_del_test] = (comptadorCreadors[r.dueno_del_test] || 0) + 1;
+            });
+            const topCreador = Object.entries(comptadorCreadors).sort((a, b) => b[1] - a[1])[0][0];
+
+            document.getElementById('stat-total-respostes').textContent = totalRespostes;
+            document.getElementById('stat-total-creadors').textContent = creadorsUnics.length;
+            document.getElementById('stat-mitjana-aciertos').textContent = `${mitjanaAciertos} / 10`;
+            document.getElementById('stat-top-creador').textContent = topCreador;
+
+            actualitzarGraficCreadors(comptadorCreadors);
+            actualitzarGraficNotes(registres);
+            actualitzarTaula(registres);
+        }
+
+        function actualitzarGraficCreadors(comptador) {
+            const labels = Object.keys(comptador);
+            const valors = Object.values(comptador);
+
+            const ctx = document.getElementById('chartCreadors').getContext('2d');
+            if (chartCreadorsInstance) chartCreadorsInstance.destroy();
+
+            chartCreadorsInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Respostes rebudes',
+                        data: valors,
+                        backgroundColor: '#6366f1',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function actualitzarGraficNotes(registres) {
+            let baixes = 0;
+            let mitjanes = 0;
+            let altes = 0;
+
+            registres.forEach(r => {
+                const pts = Number(r.aciertos) || 0;
+                if (pts < 5) baixes++;
+                else if (pts <= 7) mitjanes++;
+                else altes++;
+            });
+
+            const ctx = document.getElementById('chartNotes').getContext('2d');
+            if (chartNotesInstance) chartNotesInstance.destroy();
+
+            chartNotesInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['< 5 encerts', '5 - 7 encerts', '8 - 10 encerts'],
+                    datasets: [{
+                        data: [baixes, mitjanes, altes],
+                        backgroundColor: ['#f87171', '#fbbf24', '#34d399']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12 } }
+                    }
+                }
+            });
+        }
+
+        function actualitzarTaula(registres) {
+            const tbody = document.getElementById('taula-respostes');
+            tbody.innerHTML = '';
+
+            registres.slice(0, 10).forEach(r => {
+                const dataObj = new Date(r.fecha_hora);
+                const dataFormatada = dataObj.toLocaleDateString('ca-ES', {
+                    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                });
+
+                const fila = document.createElement('tr');
+                fila.className = "hover:bg-slate-50/70 transition";
+                fila.innerHTML = `
+                  <td class="px-6 py-3.5 text-slate-500 text-xs">${dataFormatada}</td>
+                  <td class="px-6 py-3.5 font-semibold text-slate-800">${r.dueno_del_test}</td>
+                  <td class="px-6 py-3.5 text-slate-600">${r.amigo_que_respondio}</td>
+                  <td class="px-6 py-3.5 text-center">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${r.aciertos >= 6 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'
+                    }">
+                      ${r.puntuacion || r.aciertos + '/10'}
+                    </span>
+                  </td>
+                `;
+                tbody.appendChild(fila);
+            });
+        }
+
+        // Subscripció Realtime
+        clientSupabase
+            .channel('canvis-en-temps-real')
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'responses' },
+                () => carregarDades()
+            )
+            .subscribe();
+
+        // Refresc automàtic cada 15s
+        setInterval(carregarDades, 15000);
+
+        feather.replace();
+        carregarDades();
+    </script>
+</body>
+
+</html>
